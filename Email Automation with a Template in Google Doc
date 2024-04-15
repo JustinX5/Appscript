@@ -1,0 +1,287 @@
+function onOpen() {
+  var ui = SpreadsheetApp.getUi();
+  ui.createMenu('Email Menu')
+      .addItem('Send to Draft', 'sendEmails')
+      .addToUi();
+}
+
+function sendEmails() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var data = sheet.getDataRange().getValues();
+  
+  // Create an object to store unique email addresses and their project details
+  var uniqueEmails = {};
+  
+  // Assuming the data starts from the second row (skipping header)
+  for (var i = 1; i < data.length; i++) {
+    var InvoiceDate = Utilities.formatDate(data[i][0], Session.getScriptTimeZone(), "dd-MMM-yyyy");
+    var InvoiceDueDate = Utilities.formatDate(data[i][1], Session.getScriptTimeZone(), "dd-MMM-yyyy");
+    var InvoiceNumber = data[i][2];
+    var BalanceInvoice = data[i][3];
+    var MonthsDelayed= data[i][4];
+    var CustomerName = data[i][5];
+    var Interest= data[i][6];
+    var Outstanding= data[i][7]
+    var Cemail = data[i][8];
+    var Address = data[i][9];
+    var LegalId = data[i][10];
+    var cc = data[i][11];
+   
+
+    // Add project details to the uniqueEmails object
+    if (!uniqueEmails[Cemail]) {
+      uniqueEmails[Cemail] = {projects: [],CustomerName:CustomerName, cc:cc};
+    }
+    uniqueEmails[Cemail].projects.push({ InvoiceDate: InvoiceDate, InvoiceDueDate: InvoiceDueDate, InvoiceNumber: InvoiceNumber, BalanceInvoice: BalanceInvoice, MonthsDelayed: MonthsDelayed, CustomerName: CustomerName, Interest: Interest, Outstanding: Outstanding, Cemail: Cemail, Address: Address, LegalId: LegalId});
+
+  }
+  
+  // Send emails to each unique email address
+  for (var Cemail in uniqueEmails) {
+    if (uniqueEmails.hasOwnProperty(Cemail)) {
+      sendDraftEmail(Cemail, uniqueEmails[Cemail].projects,uniqueEmails[Cemail].CustomerName, uniqueEmails[Cemail].cc);
+    }
+  }
+}
+
+function sendDraftEmail(Cemail, projects,CustomerName,cc) {
+  // Check if projects is not undefined and is an array
+  if (Array.isArray(projects)) {
+    
+    var currentDate = new Date();
+    var formattedDate = formatDate(currentDate);
+    // Compose the email body in HTML format
+    var message = "<p><b style=\"font-family: 'Google Sans', sans-serif;\"> Madam/Sir, </b></p>";
+        message += "<p style=\"font-family: 'Google Sans', sans-serif;\">With reference to the above stated subject, we would like to bring to your notice that Searce Cosourcing Services Private Limited has on-boarded your organization to enable you to use Searce Services from time to time on a consumption basis.</p>" + 
+              "<p style=\"font-family: 'Google Sans', sans-serif;\">Searce raised bills for consumption / usage of Searce Services from time to time and has been following up continuously via email till date, unfortunately, you have neglected all the reminder emails and failed to make the outstanding payment.</p>" + 
+              "<p style=\"font-family: 'Google Sans', sans-serif;\">In the same regard, please find attached hereunder the Legal/Demand Notice for non-payment of outstanding amount. Through this Legal/Demand Notice we call upon you to make the payment of outstanding amount (as stipulated in file attached) within the period of five (5) days from the date of receiving this email.</p>" + 
+              "<p style=\"font-family: 'Google Sans', sans-serif;\">In order to avoid unnecessary court proceedings it is strongly opined in your interest to clear the outstanding payment accrued towards Searce Cosourcing Services Private Limited for consumption / usage of Searce Services within time as stipulated hereinabove.</p>" + 
+              "<p style=\"font-family: 'Google Sans', sans-serif;\">Thank you.</p>" + 
+              "<p style=\"font-family: 'Google Sans', sans-serif;\">Legal Team - Searce</p>" + 
+              "<p style=\"font-family: 'Google Sans', sans-serif;\"></p>";
+   
+    var templateDoc = DriveApp.getFileById('Your Google Doc Id');
+    var templateCopy = templateDoc.makeCopy();
+    var templateCopyId = templateCopy.getId();
+    var templateDocument = DocumentApp.openById(templateCopyId);
+
+   
+    
+    // Replace placeholders with actual data in the entire document
+    var body = templateDocument.getBody();
+    body.replaceText('{CustomerName}', projects[0].CustomerName);
+    body.replaceText('{DueDate}', projects[0].InvoiceDueDate);
+    body.replaceText('{CurDate}', formattedDate);
+    body.replaceText('{Address}', projects[0].Address);
+    body.replaceText('{email}', projects[0].Cemail);
+    
+   function formatNumber(number) {
+  // Convert the number to a string with commas and exactly two fraction digits
+  return parseFloat(number).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+
+  function calculateTotalamount(projects) {
+        var total = 0;
+        projects.forEach(function(project) {
+          total += parseFloat(project.BalanceInvoice);
+        });
+        return total; // Takes the Sum of the Amount
+      }
+  function calculateTotalOutstandingDues(projects) {
+        var total = 0;
+        projects.forEach(function(project) {
+          total += parseFloat(project.Outstanding);
+        });
+        return total; // Takes the Sum of the Outstanding Dues
+      }
+
+    
+    body.replaceText('{amount}', formatNumber(calculateTotalamount(projects)));
+    body.replaceText('{outstanding}',formatNumber(calculateTotalOutstandingDues(projects)))
+
+     
+    
+
+    //to replace footer
+    var footer = templateDocument.getFooter();
+    footer.replaceText('{LegalId}',projects[0].LegalId )
+    footer.replaceText('{CurDate}',formattedDate )
+    footer.replaceText('{CustomerName}',projects[0].CustomerName )
+
+   // Find the "schedule-1" text and get its position
+    var searchText = "Schedule-1";
+    var searchResult = body.findText(searchText);
+    if (searchResult) {
+      var schedule1Text = searchResult.getElement();
+      var schedule1Index = body.getChildIndex(schedule1Text.getParent());
+      
+      // Append a table after "schedule-1"
+      var table = body.insertTable(schedule1Index + 2);
+
+ 
+      
+      // Function to add a header cell with bold text
+    function addHeaderCell(row, text, columnIndex) {
+  var cell = row.appendTableCell(columnIndex);
+  cell.setText(text);
+  var textStyle = {};
+  if (columnIndex === 0) {
+    textStyle[DocumentApp.Attribute.BOLD] = true;
+    textStyle[DocumentApp.Attribute.UNDERLINE] = false;
+    textStyle[DocumentApp.Attribute.FONT_SIZE] = 9;
+  }
+ 
+  cell.setAttributes(textStyle);
+}
+    
+      var headerRow = table.appendTableRow();
+      addHeaderCell(headerRow, "Invoice Date",0);
+      addHeaderCell(headerRow, "Invoice Number",1);
+      addHeaderCell(headerRow, "Invoice Due Date",2);
+      addHeaderCell(headerRow, "Invoice Amount",3);
+      addHeaderCell(headerRow, "Months Delayed",4);
+      addHeaderCell(headerRow, "1.5% Interest per Month in INR",5);
+      addHeaderCell(headerRow, "Total Outstanding Dues (INR)",6);
+
+      for (var i = 0; i < headerRow.getNumChildren(); i++) {
+  var cell = headerRow.getChild(i).asTableCell().setVerticalAlignment(DocumentApp.VerticalAlignment.CENTER);
+  var paragraph = cell.getChild(0).asParagraph();
+  paragraph.setAlignment(DocumentApp.HorizontalAlignment.CENTER); 
+  
+}
+    // Allignment to Center of Header Row
+      
+      headerRow.setBold(true);
+      
+      var pageWidth = 600;
+      
+      
+      var columnWidth = pageWidth/7;
+      
+      table.setColumnWidth(0,70);
+      table.setColumnWidth(1,83);
+      table.setColumnWidth(2,70);
+      table.setColumnWidth(3,75);
+      table.setColumnWidth(4,48);
+      table.setColumnWidth(5,70);
+      table.setColumnWidth(6,75);
+
+     // Add Rows
+      projects.forEach(function(project) {
+        var row = table.appendTableRow();
+        
+       
+row.appendTableCell().setText(project.InvoiceDate).setBold(false).setUnderline(false);
+
+row.appendTableCell().setText(project.InvoiceNumber).setBold(false).setUnderline(false);
+
+row.appendTableCell().setText(project.InvoiceDueDate).setBold(false).setUnderline(false);
+
+row.appendTableCell().setText(formatNumber(project.BalanceInvoice)).setBold(false).setUnderline(false);
+
+row.appendTableCell().setText(project.MonthsDelayed).setBold(false).setUnderline(false);
+
+row.appendTableCell().setText(formatNumber(project.Interest)).setBold(false).setUnderline(false);
+
+row.appendTableCell().setText(formatNumber(project.Outstanding)).setBold(false).setUnderline(false);
+
+for (var i = 0; i < row.getNumChildren(); i++) {
+    var cell = row.getChild(i).asTableCell();
+    var paragraph = cell.getChild(0).asParagraph();
+    if (i === 3 |i === 5||i === 6) {
+    paragraph.setAlignment(DocumentApp.HorizontalAlignment.RIGHT);
+  } else {
+    paragraph.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    
+
+  }
+  } // This Section sets the alignment of column 2,3,4,5 to right and its header in center
+
+//totalOutstandingDues += parseFloat(formatNumber(project.Outstanding));
+//totalInterest += parseFloat(project.Interest);
+//totalamount += parseFloat(project.BalanceInvoice);      
+      });
+      // Add a row for the total outstanding dues
+      
+var totalRow = table.appendTableRow();
+var cell = totalRow.appendTableCell("Total:");
+cell.getChild(0).asParagraph().setAlignment(DocumentApp.HorizontalAlignment.CENTER).setBold(true);
+
+      totalRow.appendTableCell("");
+      totalRow.appendTableCell(""); 
+      totalRow.appendTableCell(""+formatNumber(calculateTotalamount(projects))).getChild(0).asParagraph().setAlignment(DocumentApp.HorizontalAlignment.RIGHT); // Allignment to Right
+      totalRow.appendTableCell(""); // Empty cell for "Amount" column
+      totalRow.appendTableCell("" +formatNumber(calculateTotalInterest(projects))).getChild(0).asParagraph().setAlignment(DocumentApp.HorizontalAlignment.RIGHT); // Allignment to Right
+      totalRow.appendTableCell("" + formatNumber(calculateTotalOutstandingDues(projects))).getChild(0).asParagraph().setAlignment(DocumentApp.HorizontalAlignment.RIGHT); // Allignment to Right
+
+     
+     
+
+      function calculateTotalOutstandingDues(projects) {
+        var total = 0;
+        projects.forEach(function(project) {
+          total += parseFloat(project.Outstanding);
+        });
+        return total; // Round to 2 decimal places
+      }
+      function calculateTotalInterest(projects) {
+        var total = 0;
+        projects.forEach(function(project) {
+          total += parseFloat(project.Interest);
+        });
+        return total; // Round to 2 decimal places
+      }
+      function calculateTotalamount(projects) {
+        var total = 0;
+        projects.forEach(function(project) {
+          total += parseFloat(project.BalanceInvoice);
+        });
+        return total; // Round to 2 decimal places
+      }
+   function formatNumber(number) {
+  // Convert the number to a string with commas and exactly two fraction digits
+  return parseFloat(number).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+
+
+    } else {
+      console.error("Text 'Schedule-1' not found in the document.");
+    }
+
+    templateDocument.saveAndClose();
+   
+    var pdfFile = DriveApp.createFile(templateDocument.getAs('application/pdf'));
+
+    var subject = 'Legal/Demand Notice to '+CustomerName+' on outstanding dues towards Searce Cosourcing Services Private Limited.';
+    // Create a draft email
+    GmailApp.createDraft(Cemail, subject, '', {
+      cc: cc, // Include CC addresses here
+      htmlBody: message,
+      attachments: [pdfFile]
+    });
+     
+    // Delete the temporary copy of the document
+    DriveApp.getFileById(templateCopyId).setTrashed(true);
+
+    // Comment the below line if you want to keep the PDF file -dev
+    pdfFile.setTrashed(true);
+    
+  } else {
+    // Handle the case where projects is undefined or not an array
+    console.error("Projects data is missing or invalid for email:", email);
+  }
+}
+function formatDate(date) {
+  var day = ("0" + date.getDate()).slice(-2);
+  var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var monthIndex = date.getMonth();
+  var year = date.getFullYear();
+  
+  return day + "-" + monthNames[monthIndex] + "-" + year;
+}
+
+
+
