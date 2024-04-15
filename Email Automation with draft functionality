@@ -1,0 +1,121 @@
+function onOpen() {
+  var ui = SpreadsheetApp.getUi();
+  ui.createMenu('Email Menu')
+      .addItem('Send To Draft', 'sendEmails')
+      .addToUi();
+}
+
+function sendEmails() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var data = sheet.getDataRange().getValues();
+  
+  // Create an object to store unique email addresses and their project details
+  var uniqueEmails = {};
+  
+  // Assuming the data starts from the second row (skipping header)
+  for (var i = 1; i < data.length; i++) {
+    var CustomerName = data[i][0];
+    var Transactiontype = data[i][1];
+    var TransactionNum = data[i][2];
+    var Date = Utilities.formatDate(data[i][3], Session.getScriptTimeZone(), "dd-MMM-yyyy");
+    var DueDate = Utilities.formatDate(data[i][4], Session.getScriptTimeZone(), "dd-MMM-yyyy");
+    var Aging = data[i][5];
+    var Amount = formatNumber(data[i][6]);
+    var Balance = (data[i][7]);
+    var Interest = (data[i][8]);
+    var Total = (data[i][9]);
+    var Status = data[i][10];
+    var Email = data[i][11];
+    var cc = data[i][12];
+
+   // Add project details to the uniqueEmails object
+    if (!uniqueEmails[Email]) {
+      uniqueEmails[Email] = { projects: [], cc: cc ,CustomerName:CustomerName}; // Store cc value along with projects
+    }
+    uniqueEmails[Email].projects.push({ CustomerName: CustomerName, Transactiontype: Transactiontype, TransactionNum: TransactionNum, Date: Date, DueDate:DueDate, Aging:Aging, Amount:Amount, Balance:Balance, Interest:Interest, Total:Total, Status:Status });
+  }
+  
+   // Send emails to each unique email address along with the cc value
+  for (var email in uniqueEmails) {
+    if (uniqueEmails.hasOwnProperty(email)) {
+      sendEmail(email, uniqueEmails[email].projects, uniqueEmails[email].cc,uniqueEmails[email].CustomerName );
+    }
+  }
+}
+
+function sendEmail(email, projects, cc, CustomerName) {
+  // Check if projects is not undefined and is an array
+  if (Array.isArray(projects)) {
+    // Compose the email body in HTML format
+    var message = "<p style='font-family: \"Google Sans\", sans-serif;'> Dear "+ CustomerName+"," +"</p>";
+    message += "<p style='font-family: \"Google Sans\", sans-serif;'>We are reaching out to address a high overdue on your account. We tried reaching out to you in the past, however no satisfactory response was received.</p>";
+    message += "<p style='font-family: \"Google Sans\", sans-serif;'>At present, we have identified the overdue invoices along with interest added</p>";
+    message += "<table border='1' style='border-collapse: collapse; text-align: center; padding: 8px; font-family: \"Google Sans\", sans-serif;'>";
+    message += "<thead><tr><th style='padding: 8px;'>Customer Name</th><th style='padding: 8px;'>Transaction Type</th><th style='padding: 8px;'>Transaction Number</th><th style='padding: 8px;'>Date</th><th style='padding: 8px;'>Due Date</th><th style='padding: 8px;'>Aging</th><th style='padding: 8px;'>Amount</th><th style='padding: 8px;'>Balance</th><th style='padding: 8px;'>Interest</th><th style='padding: 8px;'>Total</th><th style='padding: 8px;'>Status</th></tr></thead>";
+
+    // Table body
+    message += "<tbody>";
+    var totalBalance = 0; // Initialize total balance for this email
+    var totalTotal = 0; // Initialize total balance for this email
+    var totalInterest = 0; // Initialize total balance for this email
+    projects.forEach(function(project) {
+      message += "<tr>";
+      message += "<td style='padding: 8px;'>" + project.CustomerName + "</td>";
+      message += "<td style='padding: 8px;'>" + project.Transactiontype + "</td>";
+      message += "<td style='padding: 8px;'>" + project.TransactionNum + "</td>";
+      message += "<td style='padding: 8px;'>" + project.Date + "</td>";
+      message += "<td style='padding: 8px;'>" + project.DueDate + "</td>";
+      message += "<td style='padding: 8px;'>" + project.Aging + "</td>";
+      message += "<td style='padding: 8px;'>" + project.Amount + "</td>";
+      message += "<td style='padding: 8px;'>" + formatNumber(project.Balance) + "</td>";
+      message += "<td style='padding: 8px;'>" + formatNumber(project.Interest) + "</td>";
+      message += "<td style='padding: 8px;'>" + formatNumber(project.Total) + "</td>";
+      message += "<td style='padding: 8px;'>" + project.Status + "</td>";
+      message += "</tr>";
+      totalBalance += (project.Balance); // Sum up the balance for this project
+      totalTotal += (project.Total); // sum up of the total for this project
+      totalInterest += (project.Interest);
+    });
+    message += "<tr><td colspan='7' style='font-weight: bold;'>Total:</td><td style='padding: 8px; font-weight: bold;'>" + formatNumber(totalBalance) + "</td><td style='padding: 8px; font-weight: bold;'>"+ formatNumber(totalInterest)+"</td><td style='padding: 8px; font-weight: bold;'>" + formatNumber(totalTotal) +"</td></tr>"; // Add total balance row
+    message += "</tbody>";
+    message += "</table><br>";
+
+    message += "<p style='font-family: \"Google Sans\", sans-serif;'>Which have remained outstanding. This prolonged delay in payment is regrettably impacting our ability to maintain uninterrupted services.</p>";
+    message += "<p style='font-family: \"Google Sans\", sans-serif;'>To avert any potential disruption of services, we kindly request your immediate attention to this matter and would request you to kindly make the payment of pending invoices.</p>";
+    message += "<p style='font-family: \"Google Sans\", sans-serif;'>If you have already paid this invoice, we apologize for any inconvenience and kindly request transaction details for verification.</p>";
+    message += "<p style='font-family: \"Google Sans\", sans-serif;'>Failure to comply within the allocated <strong>24 hours time-frame</strong> will unfortunately, compel us to suspend your account. This action is taken to safeguard our organization's financial integrity.</p>";
+    message += "<p style='font-family: \"Google Sans\", sans-serif;'>Our genuine desire is to circumvent any disruptions and maintain our mutually beneficial business relationship. For inquiries, concerns, or assistance, please do not hesitate to contact our Accounts Receivable team at accounts.receivable@searce.com immediately.</p>";
+    message += "<p style='font-family: \"Google Sans\", sans-serif;'>We appreciate your swift attention to this matter and value our ongoing partnership.</p>";
+    message += "<br><p style='font-family: \"Google Sans\", sans-serif;'>Warm regards,<br>Thanks</p>";
+
+    // Extract the customer name for the subject line
+    var subject = 'Notice of Service Suspension Due to Account Overdues | ' + CustomerName;
+    // Send the email with HTML body
+     GmailApp.createDraft(email, subject, '', {
+      cc: cc,
+      htmlBody: message
+    });
+  } else {
+    // Handle the case where projects is undefined or not an array
+    console.error("Projects data is missing or invalid for email:", email);
+  }
+}
+function formatDate(date) {
+  var day = ("0" + date.getDate()).slice(-2);
+  var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var monthIndex = date.getMonth();
+  var year = date.getFullYear();
+  
+  return day + "-" + monthNames[monthIndex] + "-" + year;
+}
+function formatNumber(number) {
+  // Remove commas from the input number
+  var numberWithoutCommas = number.toString().replace(/,/g, '');
+
+  // Convert the number to a float
+  var parsedNumber = parseFloat(numberWithoutCommas);
+
+  // Format the number with commas and exactly two fraction digits
+  return parsedNumber.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
