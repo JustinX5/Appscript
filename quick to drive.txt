@@ -1,0 +1,56 @@
+function getInvoicesFromQuickBooks() {
+  try {
+    var service = getQuickBooksService_();
+
+    if (!service || !service.hasAccess()) {
+      Logger.log('Please authorize');
+      return;
+    }
+
+    var props = PropertiesService.getUserProperties(),
+      companyId = props.getProperty('QuickBooks.companyID');
+
+    var date = new Date(new Date().getTime() - 1000 * 60 * 60).toISOString();
+    var query = "SELECT * FROM Invoice WHERE Metadata.CreateTime > '" + date + "'";
+
+    var url = 'https://quickbooks.api.intuit.com/v3/company/';
+    url = +companyId + '/query?query=' + encodeURIComponent(query);
+
+    var response = service.fetch(url, {
+      muteHttpExceptions: true,
+      contentType: 'application/json',
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+
+    var result = JSON.parse(response.getContentText());
+
+    var invoices = result.QueryResponse.Invoice;
+
+    for (var i = 0; i < invoices.length; i++) {
+      var Invoice = invoices[i];
+
+      sheet.appendRow([
+        Invoice.Id,
+        Invoice.time,
+        Invoice.Deposit,
+        Invoice.DocNumber,
+        Invoice.DepartmentRef.name,
+        Invoice.CustomerRef.name,
+        Invoice.ShipAddr.Line1,
+        JSON.stringify(Invoice.Line),
+        Invoice.ShipDate,
+        Invoice.TrackingNum,
+        Invoice.PaymentMethodRef.name,
+        Invoice.TotalAmt,
+        Invoice.Balance,
+      ]);
+    }
+  } catch (f) {
+    log_('INVOICES ERROR: ' + f.toString());
+  }
+}
+The script can be further enhanced to extract details of individual line items like the SKU / Part number, Quantity left, and so. This would however require a separate Rest API call to the following endpoint.
+
+https://quickbooks.api.intuit.com/v3/company/companyId/item/' + itemId

@@ -1,0 +1,323 @@
+{"files":[{"id":"54dbb315-e7d2-4e4b-87b7-fb004e1ec25b","name":"appsscript","type":"json","source":"{
+  "timeZone": "Asia/Kolkata",
+  "dependencies": {
+    "enabledAdvancedServices": []
+  },
+  "webapp": {
+    "executeAs": "USER_DEPLOYING",
+    "access": "ANYONE_ANONYMOUS"
+  },
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8"
+}"},{"id":"4665cfb6-f0e0-4deb-9aca-551bbcf4c997","name":"Code","type":"server_js","source":"function decode(data) {
+  return Utilities.newBlob(Utilities.base64DecodeWebSafe(data)).getDataAsString();
+}
+
+function doGet(e) {
+
+  const BU = decode(e.parameter.BU);
+  const accountOwner = decode(e.parameter.accountOwner);
+  const domainName = decode(e.parameter.domainName);
+  const opportunityId = decode(e.parameter.opportunityId);
+  const accountFolderId = decode(e.parameter.accountFolderId);
+  const salesCycle = decode(e.parameter.salesCycle);
+  const productFamily = decode(e.parameter.productFamily);
+  const user = decode(e.parameter.user);
+  const opportunityOwner = decode(e.parameter.opportunityOwner);
+  const accountId = decode(e.parameter.accountId);
+
+  const response = {
+    status: "Pending",
+    accountId,
+    domainName,
+    BU,
+    accountOwner,
+    opportunityId,
+    productFamily,
+    salesCycle,
+    requestor: user,
+    opportunityOwner,
+    accountFolderId: "",
+    repoId: "",
+    templatesCreated: "N"
+  }
+
+  try {
+
+    if(accountFolderId) {
+      const folderId = createFolder3(accountFolderId,domainName,productFamily,opportunityId, salesCycle,opportunityOwner);
+      const folderName = getFolderNameById(folderId);
+      const parentFolderName = getFolderNameById(accountFolderId);
+      const msg = `Successfully added Folder "${folderName}" in "${parentFolderName}"`;
+
+      response.accountFolderId = accountFolderId;
+      response.status = "Success";
+      response.repoId = `https://drive.google.com/drive/folders/${folderId}`;
+
+      response.templatesCreated = salesCycle;
+
+      const data = Object.values(response);
+      const folderLink = getFolderLinkById(folderId);
+      appendLog(user,accountId,folderId,msg,data);
+      sendEmail(user,folderLink,domainName,productFamily,opportunityId,salesCycle);
+      return ContentService.createTextOutput(JSON.stringify(response));
+    } else {
+      const BUFolderId = getOpportunityFolderId(BU);
+      const folder2Id = createAccountFolder(BUFolderId,BU,domainName,accountOwner);
+      const folder2Name = getFolderNameById(folder2Id);
+      const BUFolderName = getFolderNameById(BUFolderId);
+      const msg = `Successfully added Folder "${folder2Name}" in "${BUFolderName}"`;
+      
+      const folder3Id = createFolder3(folder2Id,domainName,productFamily,opportunityId,salesCycle,opportunityOwner);
+      const folder3Name = getFolderNameById(folder3Id);
+      const msg1 = `Successfully added Folder "${folder3Name}" in "${folder2Name}"`;
+      
+      
+      const folderLink = getFolderLinkById(folder3Id);
+      
+      sendEmail(user,folderLink,domainName,productFamily,opportunityId,salesCycle);
+      response.status = "Success";
+      response.accountFolderId = folder2Id;
+      response.repoId = `https://drive.google.com/drive/folders/${folder3Id}`;
+
+      response.templatesCreated = salesCycle;
+      const data = Object.values(response);
+      appendLog(user,accountId,folder3Id,`${msg1},${msg}`,data);
+      return ContentService.createTextOutput(JSON.stringify(response));
+    }
+    
+  } catch (ex) {
+
+    appendError(user,ex['stack']);
+    
+    response.status = "Failed";
+    response.errMessage = ex;
+    
+    return ContentService.createTextOutput(JSON.stringify(response));
+  }
+}
+
+const getFileNameById = (id) => DriveApp.getFileById(id).getName();
+
+const getFolderLinkById = (id) => DriveApp.getFolderById(id).getUrl();
+
+const getFolderNameById = (id) => DriveApp.getFolderById(id).getName();
+
+const appendLog = (user, accId, folderId, msg, dataArr) => {
+  const sheetId = '1k7Qmi-vqNzUpk0ukO6R3I2HC4xXiSjLv5nkPpLpTbRM';
+
+  const ss = SpreadsheetApp.openById(sheetId);
+  const loggerSheet = ss.getSheetByName('Repo API Logs');
+
+  loggerSheet.appendRow([new Date(), user, folderId, msg, accId, ...dataArr]);  
+}
+
+const appendError = (user, error) => {
+  const sheetId = '1UTb4JaCE0Dw2sozqJvrXIFlC2Dx5GEnY2w6wRfFi0gg';
+
+  const ss = SpreadsheetApp.openById(sheetId);
+  const errorSheet = ss.getSheetByName('Error Logs');
+
+  errorSheet.appendRow([new Date(), user, error]);
+} 
+
+const createSharedDrive = (sharedDriveName) => {
+  const {resourceSchema, requestId} = getDriveCreationObj(sharedDriveName);
+
+  return Drive.Drives.insert(resourceSchema, requestId).id
+}
+
+const getDriveCreationObj = (sharedDriveName) => {
+  const resourceSchema = {
+    name: sharedDriveName
+  };
+
+  const requestId = idGenerator(10);
+  
+  return {resourceSchema, requestId};
+}
+
+const getNameOfAccountFolder = (BU, accIdentifier) => `${BU} | ${accIdentifier}`;
+
+const getNameOfFolder3 = (accIdentifier, productFamily, id) => `${accIdentifier} | ${productFamily} | ${id.slice(-6)}`;
+
+const createRegionFolder = (parentFolderId, region) => createFolder(parentFolderId, `Region | ${region}`);
+
+const createAccountFolder = (parentFolderId, BU, domainName, ownerEmail = null) => {
+  const accIdentifier = getAccountIdentifier(domainName);
+  const accFolderName = getNameOfAccountFolder(BU, accIdentifier)
+
+  const accFolderId = createFolder(parentFolderId, accFolderName);
+  ownerEmail && DriveApp.getFolderById(accFolderId).addEditor(ownerEmail);
+  
+  return accFolderId;
+}
+
+const createFolder3 = (parentFolderId, domainName, productFamily, id, salesCycle, opportunityOwner) => {
+  const accIdentifier = getAccountIdentifier(domainName);
+  const nameOfFolder3 = getNameOfFolder3(accIdentifier, productFamily, id);
+
+  const getPresalesDocs = paraAssetPresalesDocs(productFamily,salesCycle);
+
+  const folder3 = DriveApp.getFolderById(parentFolderId).getFoldersByName(nameOfFolder3);
+  let folder3Id;
+
+  if(!folder3.hasNext()) {
+    folder3Id = createFolder(parentFolderId, nameOfFolder3);
+    grantAccess(folder3Id,opportunityOwner);
+    // DriveApp.getFolderById(folder3Id).addEditor(opportunityOwner);
+  } else {
+    folder3Id = folder3.next().getId();
+    grantAccess(folder3Id,opportunityOwner);
+  }
+
+  if(getPresalesDocs!=undefined && getPresalesDocs!='') {
+      for (let m = 0; m < getPresalesDocs.length; m++) {
+        try {
+          console.log(getPresalesDocs[m])
+          const getFileName = DriveApp.getFileById(getPresalesDocs[m]).getName();
+          const replaceDomainName = getFileName.replace(/domain_name/g, domainName);
+          const replaceProductName1 = replaceDomainName.replace(/G Suite/g, productFamily);
+          const moveToFolder = DriveApp.getFolderById(folder3Id);
+          const getFile = DriveApp.getFileById(getPresalesDocs[m]).makeCopy(replaceProductName1, moveToFolder) 
+          } catch(ex) {
+          console.log(ex["stack"]);
+        }
+      }
+  }
+
+  return folder3Id;
+}
+
+const createFolder = (parentFolderId, folderName) => DriveApp.getFolderById(parentFolderId).createFolder(folderName).getId();
+
+const idGenerator = (length) => {
+  let id = '';
+  
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const charactersLength = characters.length;
+  
+  for (let i = 0; i < length; i++) {
+    id += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+
+  return id;
+}
+
+const getAccountIdentifier = (domainName) => domainName.toString().match(/(\w{2,}\.\w{2,3}\.\w{2,3}|\w{2,}\.\w{2,15})$/gm)[0].toString().split('.')[0];
+
+const getOpportunityFolderId = (BU) => {
+  const sheetId = '1hk2wyK0fYitlmz3ag39NffusLU_VKEAzac-qBQeOYrI';
+  const ss = SpreadsheetApp.openById(sheetId);
+  const mappingSheet = ss.getSheetByName('Shared Drive Mapping');
+
+  const data = mappingSheet.getDataRange().getValues().map((e) => {
+    return {
+      [e[1]]: String(e[3])
+    }
+  });
+
+  const regionIds = Object.assign({},...data);
+
+  return regionIds[BU];
+}"},{"id":"b5c8ab5c-60cb-4b00-b716-3be06ee4c09a","name":"AutoCreate","type":"server_js","source":"var MSI = '14Al9WPaeGS-lTMUORKOutPoSbXR-AymLLAn1mbVozDY';//Master DataBase(Response Sheet)
+
+function getIdFromUrl(url) { return url.match(/[-\w]{25,}/); }
+
+
+function paraAssetPresalesDocs(productNameFromActiveRow,SalesCycle)
+{
+  try{
+    Logger.log("Inside paraAssetPresalesDocs"+sCount); 
+    
+    var sCount="";
+    var allData=[];
+    var paraSheet = SpreadsheetApp.openById(MSI).getSheetByName('PARA');
+    var paraSheetData = paraSheet.getDataRange().getValues();
+    for (var m = 5; m < paraSheetData.length; m++)
+    {
+      try
+      {
+        if (paraSheetData[m][0] ==productNameFromActiveRow+' | '+SalesCycle) 
+        {
+          if(paraSheetData[m][1]!='')
+          {
+            var sheetID=paraSheetData[m][1]; 
+            {
+              var sheetName='Templates | '+SalesCycle;
+              var newTempFile=SpreadsheetApp.openById(sheetID).getSheetByName(sheetName);
+              var data=newTempFile.getDataRange().getValues();
+              
+              for(var i=1 ; i<data.length ; i++)
+              {
+                try
+                {
+                  if(data[i][3]=="Auto Created")
+                  {
+                    //var url = /"(.*?)"/.exec(newTempFile.getRange(i+1, 2).getFormula())[1]; 
+                    var url = newTempFile.getRange(i+1, 2).getRichTextValue().getLinkUrl();
+                    var res = url.split("/");
+                    allData.push(getIdFromUrl(url).toString());
+                    Logger.log("DOC ID'S: "+getIdFromUrl(url).toString())
+                  }
+                  
+                  
+                }
+                catch(ex)
+                {
+                  console.log(ex["stack"])
+//                  errorLogSheet.appendRow([date, currUser, JSON.stringify(ex)]);
+                }
+              }
+              
+            }
+            
+          }//if
+        }
+      }
+      catch(e)
+      {
+        console.log(e["stack"])
+//        errorLogSheet.appendRow([date, currUser, JSON.stringify(e)]);
+      }
+    }
+    // Logger.log(allData)
+    return allData;
+    
+  }
+  catch(ex){
+//    errorLogSheet.appendRow([date, currUser, JSON.stringify(ex)]);
+    console.log(ex["stack"])
+  }
+}
+
+function test() {
+  var data = paraAssetPresalesDocs('GCP','Delivery');
+  console.log(data);
+}"},{"id":"5cc8ac0c-b976-4ec2-a1d3-fc4a537d1504","name":"send email","type":"server_js","source":"const sendEmail = (email, link, domainName, productName, projectCode, salesCycle) => {
+  const subject = productName ? `${domainName} | ${productName} | ${projectCode}` : `${domainName} | ${projectCode}`;
+  const body = `Hello,\n\nThis ${salesCycle} folder has been shared with you by Cloud Portal\n\nFolder Link : ${link}\n\n\nBest Regards,`;
+
+  const emailOptions = {
+    noReply: true,
+  };
+
+  GmailApp.sendEmail(email, subject, body, emailOptions);
+}"},{"id":"c788fb55-e535-46ca-8532-3291afd48276","name":"access","type":"server_js","source":"function grantAccess(folderId,emails) {
+  const user = Session.getActiveUser().getEmail();
+  const currentUser = encode(user);
+  const repoFolderId = encode(folderId);
+  const userEmails = encode(emails);
+  const accessFlag = encode('G');
+  const accessType = encode('Content Manager');
+
+  const url = 'https://script.google.com/macros/s/AKfycbxXrf4WJWx3E0cezXgnbXe-Uxyzhy_ui4whl0qJeDWKth8Vn-tyXnZA1vI2o-VmKLaD/exec?user='+currentUser+'&folderId='+repoFolderId+'&emails='+userEmails+'&accessFlag='+accessFlag+'&accessType='+accessType;
+
+    const res = UrlFetchApp.fetch(url).getContentText();
+
+    return res;
+}
+
+function encode(data){
+  return Utilities.base64EncodeWebSafe(String(data));
+}"}]}

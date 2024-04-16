@@ -1,0 +1,436 @@
+{"files":[{"id":"3ca2fefe-59d0-4432-85c9-adb0cd85c20a","name":"appsscript","type":"json","source":"{
+  "timeZone": "Asia/Kolkata",
+  "dependencies": {
+    "enabledAdvancedServices": [
+      {
+        "userSymbol": "Drive",
+        "version": "v2",
+        "serviceId": "drive"
+      }
+    ]
+  },
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "webapp": {
+    "executeAs": "USER_DEPLOYING",
+    "access": "DOMAIN"
+  }
+}"},{"id":"3251c7e8-2db6-4c8b-bfde-907d0f5f1dce","name":"Code","type":"server_js","source":"function doGet(e) {
+  return HtmlService.createHtmlOutputFromFile('newForm').setTitle('Access Management')
+  .setSandboxMode(HtmlService.SandboxMode.IFRAME)
+  .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+const encodeData = (data) => Utilities.base64EncodeWebSafe(String(data));
+
+const searchFolderByName = (folderName) => {
+  const res = Drive.Files.list({
+    q: `mimeType='application/vnd.google-apps.folder' and title contains '${folderName}' and trashed=false`,
+    supportsAllDrives: true,
+    includeTeamDriveItems: true,
+  })
+
+  if(res.items.length > 0) {
+    const folderId = res.items[0].id;
+    return folderId;
+  } else {
+    return false;
+  }
+}
+
+function checkAndGrantAccess(data) {
+  const currentUser = Session.getActiveUser().getEmail();
+  const {projectCode,userEmails,accessType} = JSON.parse(data);
+
+  try{
+    const repoFolderId = searchFolderByName(projectCode);
+
+    if(!repoFolderId) {
+      const status = 'Failed';
+      const msg = `Cannot find folder for ${projectCode}`;
+      
+      return JSON.stringify({status,msg});
+    }
+
+    const drivePermissions = getPermissionById(repoFolderId);
+
+    const editorEmails = drivePermissions.filter(p => (p.role === 'organizer' || p.role === 'fileOrganizer' || p.role === 'writer')).map(p => p.email);
+
+    if(editorEmails.includes(currentUser)) {
+      const url = 'https://script.google.com/a/macros/searce.com/s/AKfycbw_ROUX9mMP1kQQAUDEJ87X6lY7a6CQRgGpz0vo4iIAu6rRBRWur62HaaKSwEdGrwRo/exec?user='+encodeData(currentUser)+'&folderId='+encodeData(repoFolderId)+'&emails='+encodeData(userEmails)+'&accessFlag='+encodeData('G')+'&accessType='+encodeData(accessType);
+
+      const res = UrlFetchApp.fetch(url).getContentText();
+      
+      const {status} = JSON.parse(res);
+      
+      if(status === 'Success') {
+        const msg = 'Access Granted Successfully!!';
+        return JSON.stringify({status, msg});
+      } else {
+        const msg = 'Something went wrong!!';
+        return JSON.stringify({status, msg});
+      }
+
+      
+    } else {
+      const status = 'Failed';
+      const msg = `You do not have access to the requested folder!`;
+
+      return JSON.stringify({status, msg});
+    }
+  } catch (ex) {
+    console.log(ex['stack']);
+    const status = 'Failed';
+    const msg = 'Something went wrong!!';
+
+    return JSON.stringify({status, msg});
+  }
+}
+
+function getPermissionById(id) {
+  const args = {
+    supportsAllDrives: true
+  };
+
+  const data = Drive.Permissions.list(id,args).items;
+
+  const permissionsWithRole = new Array();
+
+  for(let i = 0; i < data.length; i++) {
+    const userAndRole = {email: data[i].emailAddress, role: data[i].role};
+    permissionsWithRole.push(userAndRole);
+  }
+
+  return permissionsWithRole;
+}"},{"id":"5d58bc84-33f9-4bb2-a0c2-c011ef29583d","name":"form","type":"html","source":"<!DOCTYPE html>
+<html>
+  <style>
+    form {
+      width: 50%;
+      margin: 10px auto 0px auto;
+    }
+
+    button {
+      margin-top: 20px;
+      width: 200px;
+      height: 50px;
+    }
+  </style>
+  <head>
+    <base target="_top" />
+  </head>
+
+  <body>
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css"
+    />
+
+    <form>
+      <div class="form-group row">
+        <label for="repoLink" class="col-4 col-form-label"
+          >Repository Link</label
+        >
+        <div class="col-8">
+          <input
+            id="repoLink"
+            name="repoLink"
+            placeholder="URL From Shared Drive Only"
+            type="url"
+            class="form-control"
+            required="required"
+          />
+        </div>
+      </div>
+      <div class="form-group row">
+        <label for="emails" class="col-4 col-form-label">Email ID(s)</label>
+        <div class="col-8">
+          <input
+            id="emails"
+            name="emails"
+            placeholder="User Emails Separated by Comma (,)"
+            type="email"
+            class="form-control"
+            required="required"
+          />
+        </div>
+      </div>
+      <div class="form-group row">
+        <label for="access-type" class="col-4 col-form-label"
+          >Access Required</label
+        >
+        <div class="col-8">
+          <select
+            id="access-type"
+            name="access-type"
+            required="required"
+            class="custom-select"
+          >
+            <option value="Contributor">Contributor</option>
+            <option value="Content Manager">Content Manager</option>
+            <option value="Commenter">Commenter</option>
+            <option value="Viewer">Viewer</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group row">
+        <div class="offset-4 col-8">
+          <button id="submitBtn" name="submit" type="submit" class="btn btn-info">
+            Submit
+          </button>
+          <button id="resetBtn" name="reset" class="btn btn-info">
+            Reset
+          </button>
+        </div>
+      </div>
+    </form>
+    <script>
+      const getIdFromUrl = (url) => url.match(/[-\w]{25,}/);
+
+      const validateForm = () => {
+        const repoLink = document.getElementById('repoLink').value;
+        const userEmails = document.getElementById('emails').value;
+
+        return (repoLink == '' && userEmails == '');
+      }
+
+      const validateEmailInputs = () => {
+        const userEmails = document.getElementById('emails').value;
+
+        const externalUsers = userEmails.split(',').filter(e => !e.includes('searce.com'));
+
+        return Boolean(externalUsers) && externalUsers.length > 0;
+      }
+
+      document.getElementById('submitBtn').addEventListener('click',(e) => {
+        e.preventDefault();
+
+        if(validateForm()) {
+          alert('Please Fill required deatils!!');
+          return;
+        }
+
+        if(validateEmailInputs()) {
+          alert(`You can't extend access to External User\nPlease Check your Email field`);
+          return;
+        }  
+
+        document.getElementById('submitBtn').disabled = true;
+
+        const repoLink = document.getElementById('repoLink').value;
+        const userEmails = document.getElementById('emails').value;
+        const accessType = document.getElementById('access-type').value;
+
+        const repoFolderId = getIdFromUrl(repoLink);
+
+        const data = JSON.stringify({repoFolderId,userEmails,accessType});
+        
+        google.script.run.withSuccessHandler(showAlert).checkAndGrantAccess(data);
+      });
+
+      const resetForm = () => {
+        document.getElementById('repoLink').value = '';
+        document.getElementById('emails').value = '';
+      }
+
+      document.getElementById('resetBtn').addEventListener('click',resetForm);
+
+      const showAlert = (obj) => {
+        const submitBtn = document.getElementById('submitBtn');
+        const {status, msg} = JSON.parse(obj);
+
+        console.table({status, msg});
+
+        if(status === 'Success') {
+          alert(msg);
+          resetForm();
+          submitBtn.disabled = false;
+        } else {
+          alert(msg);
+          resetForm();
+          submitBtn.disabled = false;
+        }
+     }
+    </script>
+  </body>
+</html>"},{"id":"9457600e-b29c-4342-b541-7735ca954aa8","name":"newForm","type":"html","source":"<!DOCTYPE html>
+<html>
+  <style>
+    form {
+      width: 50%;
+      margin: 10px auto 0px auto;
+    }
+
+    button {
+      margin-top: 20px;
+      width: 150px;
+      height: 50px;
+    }
+
+    span {
+      font-size: 0.7em;
+      font-style: Italic;
+    }
+  </style>
+  <head>
+    <base target="_top" />
+  </head>
+
+  <body>
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css"
+    />
+
+    <form>
+      <div class="form-group row">
+        <h3 style="margin-right: auto; margin-left: auto; font-family:georgia; font-size:20pt; font-weight:bold; color:#1C69A9; padding-bottom:20px;">Access Management</h3>
+      </div>
+      <div class="form-group row">
+        <label for="repoLink" class="col-4 col-form-label"
+          >Sales Cycle</label
+        >
+        <div class="col-8">
+          <select
+            id="salesCycle"
+            name="salesCycle"
+            required="required"
+            class="custom-select"
+          >
+           <option value="Sales">Sales</option>
+           <option value="Presales">Presales</option>
+           <option value="Delivery">Delivery</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group row">
+        <label for="project-code" class="col-4 col-form-label">Project/Opportunity Code</label>
+        <div class="col-8">
+          <input
+            id="project-code"
+            name="project-code"
+            placeholder="Enter Code"
+            type="text"
+            class="form-control"
+            required="required"
+          />
+          <span>Either enter PR code for Delivery or Last 6 digit of Opportunity Id for Sales/Presales</span>
+        </div>
+      </div>
+      <div class="form-group row">
+        <label for="emails" class="col-4 col-form-label">Email ID(s)</label>
+        <div class="col-8">
+          <input
+            id="emails"
+            name="emails"
+            placeholder="User Emails Separated by Comma (,)"
+            type="email"
+            class="form-control"
+            required="required"
+          />
+        </div>
+      </div>
+      <div class="form-group row">
+        <label for="access-type" class="col-4 col-form-label"
+          >Access Required</label
+        >
+        <div class="col-8">
+          <select
+            id="access-type"
+            name="access-type"
+            required="required"
+            class="custom-select"
+          >
+            <option value="Contributor">Contributor</option>
+            <option value="Content Manager">Content Manager</option>
+            <option value="Commenter">Commenter</option>
+            <option value="Viewer">Viewer</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group row">
+        <div class="offset-4 col-8">
+          <button id="submitBtn" name="submit" type="submit" class="btn btn-info">
+            Submit
+          </button>
+          <button id="resetBtn" name="reset" class="btn btn-info">
+            Reset
+          </button>
+        </div>
+      </div>
+    </form>
+    <script>
+      const validateForm = () => {
+        const projectCode = document.getElementById('project-code').value;
+        const userEmails = document.getElementById('emails').value;
+
+        return (projectCode == '' && userEmails == '');
+      }
+
+      const validateEmailInputs = () => {
+        const userEmails = document.getElementById('emails').value;
+
+        const externalUsers = userEmails.split(',').filter(e => !e.includes('searce.com'));
+
+        return Boolean(externalUsers) && externalUsers.length > 0;
+      }
+
+      document.getElementById('submitBtn').addEventListener('click',(e) => {
+        e.preventDefault();
+
+        if(validateForm()) {
+          alert('Please Fill required deatils!!');
+          return;
+        }
+
+        if(validateEmailInputs()) {
+          alert(`You can't extend access to External User\nPlease Check your Email field`);
+          return;
+        }  
+
+        document.getElementById('submitBtn').disabled = true;
+
+        const salesCycle = document.getElementById('salesCycle').value;
+        const projectCode = document.getElementById('project-code').value;
+        const userEmails = document.getElementById('emails').value;
+        const accessType = document.getElementById('access-type').value;
+
+        const data = JSON.stringify({salesCycle,projectCode,userEmails,accessType});
+        console.log(data);
+        google.script.run.withSuccessHandler(showAlert).checkAndGrantAccess(data);
+      });
+
+      const resetForm = () => {
+        document.getElementById('project-code').value = '';
+        document.getElementById('emails').value = '';
+      }
+
+      document.getElementById('resetBtn').addEventListener('click',resetForm);
+
+      const showAlert = (obj) => {
+        const submitBtn = document.getElementById('submitBtn');
+        const {status, msg} = JSON.parse(obj);
+
+        console.table({status, msg});
+
+        if(status === 'Success') {
+          alert(msg);
+          resetForm();
+          submitBtn.disabled = false;
+        } else {
+          alert(msg);
+          resetForm();
+          submitBtn.disabled = false;
+        }
+     }
+    </script>
+  </body>
+</html>"}]}

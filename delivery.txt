@@ -1,0 +1,169 @@
+{"files":[{"id":"16aa4858-2490-4252-8ca3-dadfe780f810","name":"appsscript","type":"json","source":"{
+  "timeZone": "Asia/Kolkata",
+  "dependencies": {},
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "webapp": {
+    "executeAs": "USER_DEPLOYING",
+    "access": "ANYONE_ANONYMOUS"
+  }
+}"},{"id":"45732f09-a1cb-4f51-a620-416bcb2520fc","name":"Code","type":"server_js","source":"function decode(data) {
+  return Utilities.newBlob(Utilities.base64DecodeWebSafe(data)).getDataAsString();
+}
+
+function doGet(e) {
+  const domainName = decode(e.parameter.domainName);
+  const BU = decode(e.parameter.BU);
+  const accountOwner = decode(e.parameter.accountOwner);
+  const parentFolderId = decode(e.parameter.parentFolderId);
+  const user = decode(e.parameter.user);
+  const accountId = decode(e.parameter.accountId);
+
+  const response = {
+    status: "Pending",
+    accountId,
+    domainName,
+    BU,
+    accountOwner,
+    requestor: user,
+    parentFolderId,
+    accountFolderId: ""
+  }
+
+  try {
+
+    const folderId = createAccountFolder(parentFolderId,BU,domainName,accountOwner);
+    response.accountFolderId = folderId;
+    const folderName = getFolderNameById(folderId);
+    const parentFolderName = getFolderNameById(parentFolderId);
+    const msg = `Successfully added Folder "${folderName}" in "${parentFolderName}"`;
+    const folderLink = getFolderLinkById(folderId);
+    sendEmail(accountOwner,folderLink,domainName);
+    response.status = "Success";
+    const data = Object.values(response);
+    appendLog(user,folderId,msg,data);
+    return ContentService.createTextOutput(JSON.stringify(response));
+  } catch (ex) {
+
+    appendError(user,ex);
+    response.status = "Failed";
+    response.errMessage = ex;
+
+    return ContentService.createTextOutput(JSON.stringify(response));
+  }
+}
+
+const getFileNameById = (id) => DriveApp.getFileById(id).getName();
+
+const getFolderLinkById = (id) => DriveApp.getFolderById(id).getUrl();
+
+const getFolderNameById = (id) => DriveApp.getFolderById(id).getName();
+
+const appendLog = (user, id, msg, dataArr) => {
+  const sheetId = '1rx4hBmZMMs_RJlt_HwLO4PwcybL4kJGiOp_TISwYvRs';
+
+  const ss = SpreadsheetApp.openById(sheetId);
+  const loggerSheet = ss.getSheetByName('Acc Folder API Logs');
+
+  loggerSheet.appendRow([new Date(), user, id, msg, ...dataArr]);  
+}
+
+const appendError = (user, error) => {
+  const sheetId = '1UTb4JaCE0Dw2sozqJvrXIFlC2Dx5GEnY2w6wRfFi0gg';
+
+  const ss = SpreadsheetApp.openById(sheetId);
+  const errorSheet = ss.getSheetByName('Error Logs');
+
+  errorSheet.appendRow([new Date(), user, error]);
+} 
+
+const createSharedDrive = (sharedDriveName) => {
+  const {resourceSchema, requestId} = getDriveCreationObj(sharedDriveName);
+
+  return Drive.Drives.insert(resourceSchema, requestId).id
+}
+
+const getDriveCreationObj = (sharedDriveName) => {
+  const resourceSchema = {
+    name: sharedDriveName
+  };
+
+  const requestId = idGenerator(10);
+  
+  return {resourceSchema, requestId};
+}
+
+const getNameOfAccountFolder = (BU, accIdentifier) => `${BU} | ${accIdentifier}`;
+
+const getNameOfFolder3 = (accIdentifier, productFamily, id) => `${accIdentifier} | ${productFamily} | ${id.slice(-6)}`;
+
+const createRegionFolder = (parentFolderId, region) => createFolder(parentFolderId, `Region | ${region}`);
+
+const createAccountFolder = (parentFolderId, BU, domainName, ownerEmail = null) => {
+  const accIdentifier = getAccountIdentifier(domainName);
+  const accFolderName = getNameOfAccountFolder(BU, accIdentifier)
+
+  const accFolderId = createFolder(parentFolderId, accFolderName);
+  ownerEmail && DriveApp.getFolderById(accFolderId).addEditor(ownerEmail);
+  
+  return accFolderId;
+}
+
+const createFolder3 = (parentFolderId, domainName, productFamily, id, salesCycle) => {
+  const accIdentifier = getAccountIdentifier(domainName);
+  const nameOfFolder3 = getNameOfFolder3(accIdentifier, productFamily, id);
+
+  const getPresalesDocs = paraAssetPresalesDocs(productFamily,salesCycle);
+
+  const folder3 = DriveApp.getFolderById(parentFolderId).getFoldersByName(nameOfFolder3);
+  let folder3Id;
+
+  if(!folder3.hasNext()) {
+    folder3Id = createFolder(parentFolderId, nameOfFolder3);
+  } else {
+    folder3Id = folder3.next().getId();
+  }
+
+  if(getPresalesDocs!=undefined && getPresalesDocs!='') {
+      for (let m = 0; m < getPresalesDocs.length; m++) {
+        try {
+          console.log(getPresalesDocs[m])
+          const getFileName = DriveApp.getFileById(getPresalesDocs[m]).getName();
+          const replaceDomainName = getFileName.replace(/domain_name/g, accIdentifier);
+          const replaceProductName1 = replaceDomainName.replace(/G Suite/g, productFamily);
+          const moveToFolder = DriveApp.getFolderById(folder3Id);
+          const getFile = DriveApp.getFileById(getPresalesDocs[m]).makeCopy(replaceProductName1, moveToFolder) 
+          } catch(ex) {
+          console.log(ex["stack"]);
+        }
+      }
+  }
+
+  return folder3Id;
+}
+
+const createFolder = (parentFolderId, folderName) => DriveApp.getFolderById(parentFolderId).createFolder(folderName).getId();
+
+const idGenerator = (length) => {
+  let id = '';
+  
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const charactersLength = characters.length;
+  
+  for (let i = 0; i < length; i++) {
+    id += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+
+  return id;
+}
+
+const getAccountIdentifier = (domainName) => domainName.toString().match(/(\w{2,}\.\w{2,3}\.\w{2,3}|\w{2,}\.\w{2,15})$/gm)[0].toString().split('.')[0];"},{"id":"6577a8c2-b48b-4585-8d9e-dd2f0ba04e4a","name":"send email","type":"server_js","source":"const sendEmail = (email, link, domainName) => {
+  const subject = `${domainName} | Account Folder Sharing Notification`;
+  const body = `Hello,\n\nThis Account folder has been shared with you by Cloud Portal\n\nFolder Link : ${link}\n\n\nBest Regards,`;
+
+  const emailOptions = {
+    noReply: true,
+  };
+
+  GmailApp.sendEmail(email, subject, body, emailOptions);
+}"}]}

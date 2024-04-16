@@ -1,0 +1,648 @@
+{"files":[{"id":"5727b767-a897-49ae-ba9e-ea69216caf18","name":"appsscript","type":"json","source":"{
+  "timeZone": "Asia/Kolkata",
+  "dependencies": {
+    "enabledAdvancedServices": [
+      {
+        "userSymbol": "Drive",
+        "serviceId": "drive",
+        "version": "v2"
+      }
+    ]
+  },
+  "webapp": {
+    "executeAs": "USER_DEPLOYING",
+    "access": "DOMAIN"
+  },
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8"
+}"},{"id":"286cc15c-8919-42f7-81f3-d7217c4c5b08","name":"Index","type":"html","source":"<html>
+<head>
+<?!= HtmlService.createHtmlOutputFromFile('Stylesheet').getContent(); ?>
+ <!-- <?!= HtmlService.createHtmlOutputFromFile('javascript').getContent(); ?> -->
+</head>
+<center>
+<br>
+<input id="user" type="hidden" value="">
+<form class="form-horizontal" Id="userReuestFrmData" >
+
+
+
+<!-- Form Name -->
+<span style="font-family:georgia; font-size:20pt; font-weight:bold; color:#1C69A9; padding-bottom:20px;"> Auto Create Repositories</span>
+<br>
+<br>
+
+
+<!-- Select Basic -->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="scyscle">Sales Cycle<font color="red"> *</font></label>
+  <div class="col-md-5">
+    <select id="scyscle" name="scyscle" class="form-control" onchange="getSalesCycleAndUser()">
+      <option disabled selected value>Select Sales Cycle</option>
+      <option value="Sales">Sales</option>
+      <option value="Presales">Presales</option>
+      <option value="Delivery">Delivery</option>
+    </select>
+  </div>
+</div>
+
+
+
+<!-- Text input-->
+<div class="form-group">
+
+  <label class="col-md-4 control-label" for="textinput">Code<font color="red"> *</font> </label>
+  <div class="col-md-5">
+  <select id="cname" name="cname" class="form-control input-md" required="" onchange="prefillData()">
+    <option disabled selected value>Select Sales Cycle First</option>
+  </select>
+  </div>
+</div>
+
+<!-- Text input-->
+<div class="form-group">
+
+  <label class="col-md-4 control-label" for="textinput">Account Name<font color="red"> *</font> </label>
+  <div class="col-md-5">
+  <input disabled id="accname" name="accname" type="text" placeholder="Account Name" class="form-control input-md" required="" >
+  
+  </div>
+</div>
+
+
+<!-- Text input-->
+<div class="form-group">
+
+  <label class="col-md-4 control-label" for="textinput">Domain Name<font color="red"> *</font> </label>
+  <div class="col-md-5">
+  <input disabled id="dname" name="dname" type="text" placeholder="Domain Name" class="form-control input-md" required="" >
+  
+  </div>
+</div>
+
+
+<!-- Select Basic -->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="pname">Product Name<font color="red"> *</font></label>
+  <div class="col-md-5">
+    <input disabled id="pname" name="pname" type="text" placeholder="Product Name" class="form-control input-md" required="" >
+      
+    </select>
+  </div>
+</div>
+
+<!-- Delivery Basic -->
+<div class="form-group">
+  <label class="col-md-4 control-label" for="pname">Delivery BU<font color="red"> *</font></label>
+  <div class="col-md-5">
+    <input disabled id="dbuname" name="dbuname" type="text" placeholder="Delivery BU" class="form-control input-md" required="" >
+      
+    </select>
+  </div>
+</div>
+
+<div class="form-group">
+  <label class="col-md-4 control-label" for="pname">Account Owner<font color="red"> *</font></label>
+  <div class="col-md-5">
+    <input disabled id="aoname" name="aoname" type="text" placeholder="Account Owner" class="form-control input-md" required="" >
+      
+    </select>
+  </div>
+</div>
+
+
+<div id="accountId" class="form-group">
+  <label class="col-md-4 control-label" for="pname">Account ID<font color="red"> *</font></label>
+  <div class="col-md-5">
+    <input disabled id="ainame" name="ainame" type="text" placeholder="Account ID" class="form-control input-md" required="" >
+      
+    </select>
+  </div>
+</div>
+
+<div class="form-group">
+  <label class="col-md-4 control-label" for="pname">Project/Oppurtunity Owner<font color="red"> *</font></label>
+  <div class="col-md-5">
+    <input disabled id="poname" name="poname" type="text" placeholder="Project/Oppurtunity Owner" class="form-control input-md" required="">
+      
+    </select>
+  </div>
+</div>
+ 
+
+ <!-- Select PR/PS -->
+<!-- <div class="form-group">
+  <label class="col-md-4 control-label" for="scyscle">PR/PS<font color="red"> *</font></label>
+  <div class="col-md-5">
+    <input disabled id="prpsname" name="prpsname" type="text" placeholder="PR/PS " class="form-control input-md" required="" onchange="Domainname(this.value);">
+  </div>
+</div> -->
+
+<!-- Select Basic -->
+<!-- <div class="form-group" id="scountDiv">
+  <label class="col-md-4 control-label" for="scount">Seat Count<font color="red"> *</font></label>
+  <div class="col-md-5">
+  <input id="scount" name="scount"  type="text" placeholder="Seat Count" class="form-control input-md" required="">
+  </div>
+</div> -->
+
+<!-- Button (Double) -->
+
+ </form>
+ <br>
+<div class="row">
+    <div class="col-xs-6 col-sm-6 col-lg-6">
+    <div class="form-group" align="right">
+    <input type="button" id="userBttn" name="userBttn" type="button" onclick= "createFolder()" class="btn btn-info" style=" width: 200px;height: 50px; " value="Submit">
+   </div>
+   </div>
+   <div class="col-xs-6 col-sm-6 col-lg-6">
+       <div class="form-group" align="left">
+    <button id="userRstBttn" name="userRstBttn" type="button" onclick= "resetForm()"  class="btn btn-info" style=" width: 200px;height: 50px;">Reset</button>
+   </div>
+   </div>
+   </div>
+   <script>
+
+     // Global Params
+
+     let globalAccountFolderId = '';
+     let globalRepoLink = null;
+     let globalSubBU = '';
+
+     document.getElementById('accountId').style.display = 'none'; // Account ID is backend field
+
+
+     // feed data according to sales cycle and code
+     function prefillData() {
+       var salecycle = document.getElementById("scyscle").value;
+       var code = document.getElementById("cname").value;
+       
+       if(salecycle && code) {  // if both are available call function from server and pass return value to success handler
+         google.script.run.withSuccessHandler(setValues).getDataFromCode(salecycle,code);
+       }
+     }
+
+     function setValues(data) { // feed data to all the fields
+
+       const {domainName, productName, deliveryBU, accountOwner, accountId, projectOwner,currentUser, accountName, accountFolderId, repoLink, subBU} = JSON.parse(data); // Parse Object from Data returned from Server
+
+       // Set Global Params
+
+       globalAccountFolderId = accountFolderId; 
+       globalRepoLink = repoLink;
+       globalSubBU = subBU;
+
+       // Feeding values of according fields
+
+       document.getElementById("dname").value = domainName;
+       document.getElementById("pname").value = productName;
+       document.getElementById("dbuname").value = deliveryBU;
+       document.getElementById("aoname").value = accountOwner;
+       document.getElementById("ainame").value = accountId;
+       document.getElementById("poname").value = projectOwner;
+       document.getElementById("user").value = currentUser;
+       document.getElementById("accname").value = accountName;
+     }
+
+     function getValues() { // get values from entire DOM Tree by id
+
+      const code = document.getElementById("cname").value;
+      const salesCycle = document.getElementById("scyscle").value;
+      // const projectCode = document.getElementById("cname").value;
+      const domainName = document.getElementById("dname").value;
+      const productName = document.getElementById("pname").value;
+      const deliveryBU = document.getElementById("dbuname").value;
+      const accountOwner = document.getElementById("aoname").value;
+      const accountId = document.getElementById("ainame").value;
+      const projectOwner = document.getElementById("poname").value;
+      const currentUser = document.getElementById("user").value;
+      const accountName = document.getElementById("accname").value;
+      
+      return {code, salesCycle, domainName, productName, deliveryBU, accountOwner, accountId, projectOwner,currentUser, accountName, globalAccountFolderId, globalSubBU};
+
+     }
+
+     function createFolder() { // create folder on submission of data
+       const validation = formValidation(); // validate whether required details are missing
+
+       if(globalRepoLink) { // if repo is already created propmt user with link
+         prompt("Repository already exists!!\nCopy to clipboard: Ctrl+C, Enter", globalRepoLink);
+         resetForm(); // reset data in order to proceed with new request
+         return;
+       }
+
+       if(!validation) { // prompt user if details are missing
+         alert(`Details are missing in SFDC to create a repository for this project`);
+         resetForm(); // reset as user won't be able to fill in data manually
+         return;
+       }
+
+       const submitBtn = document.getElementById('userBttn'); // if everything is correct disable submit button while repo is created
+       submitBtn.disabled = true;
+      
+      const {code:projectCode, salesCycle, domainName, productName:productFamily, deliveryBU:BU, accountOwner, accountId, projectOwner:opportunityOwner,currentUser:user,globalAccountFolderId:accountFolderId} = getValues(); // get all the values
+
+      const apiData = JSON.stringify({salesCycle,domainName,productFamily,BU,accountOwner,accountId,opportunityOwner,user,accountFolderId,projectCode}) // Stringify data as it is Client to Server Communication
+
+      console.log(apiData);
+
+      google.script.run.withSuccessHandler(displayAlert).createFolderUsingApi(apiData); // return status and msg from server to handler function to display alert accordingly
+     }
+
+     function displayAlert(msg) { // display alert according server's msg
+       const submitBtn = document.getElementById('userBttn');
+       const {status, repoId} = JSON.parse(msg); // Parse details returned by Server
+
+       if(status === 'Success') { // in case success
+         alert(`Repository Created Successfully! Please Check your mailbox :)`);
+         resetForm();
+         submitBtn.disabled = false;
+       } else { // in case of failure
+         alert(`Something Went Wrong! Repository aren't Created!! Please try again :(`);
+         resetForm();
+         submitBtn.disabled = false;
+       }
+     }
+
+     function appendCodes(codes) { // append codes to dropdown as option
+       const codeDropDown = document.getElementById('cname');
+
+       for(let i = 0; i < codes.length; i++) {
+        const option = document.createElement('option');
+        option.text = option.value = codes[i];
+        codeDropDown.add(option, 1);
+       }
+     }
+
+     function getSalesCycleAndUser() { // get data from user -> sales cycle
+       const salesCycle = document.getElementById("scyscle").value;
+       document.getElementById("cname").selectedIndex = "0";
+
+       while (document.getElementById('cname').options.length !== 1) {                
+        document.getElementById('cname').remove(1);
+       }
+
+       document.getElementById("dname").value = '';
+       document.getElementById("pname").value = '';
+       document.getElementById("dbuname").value = '';
+       document.getElementById("aoname").value = '';
+       document.getElementById("ainame").value = '';
+       document.getElementById("poname").value = '';
+       document.getElementById("user").value = '';
+       document.getElementById("accname").value = '';
+       google.script.run.withSuccessHandler(appendCodes).getProjectCodeByUser(salesCycle);  // get codes by user and sales cycle  
+     }
+
+     function formValidation() { // validate details as per requirement of parameters in Folder Creation of API
+        const salesCycle = document.getElementById("scyscle").value;
+        const projectCode = document.getElementById("cname").value;
+        const domainName = document.getElementById("dname").value;
+        const productName = document.getElementById("pname").value;
+        const deliveryBU = document.getElementById("dbuname").value;
+        const accountOwner = document.getElementById("aoname").value;
+        const accountId = document.getElementById("ainame").value;
+        const projectOwner = document.getElementById("poname").value;
+        const currentUser = document.getElementById("user").value;
+        const accountName = document.getElementById("accname").value;
+
+        if((deliveryBU == 'WM' || deliveryBU == 'WT') && globalSubBU == '') {
+          alert('Sub BU is missing in data');
+          return;
+        }
+
+        return (projectCode && salesCycle && domainName && productName && accountId && currentUser && projectOwner && deliveryBU);
+     }
+
+     function resetForm() { // reset each and every filed in UI
+       document.getElementById('userBttn').disabled = false;
+       document.getElementById("cname").selectedIndex = "0";
+
+       while (document.getElementById('cname').options.length !== 1) {                
+        document.getElementById('cname').remove(1);
+       }
+
+       document.getElementById("scyscle").selectedIndex = "0";
+       document.getElementById("dname").value = '';
+       document.getElementById("pname").value = '';
+       document.getElementById("dbuname").value = '';
+       document.getElementById("aoname").value = '';
+       document.getElementById("ainame").value = '';
+       document.getElementById("poname").value = '';
+       document.getElementById("user").value = '';
+       document.getElementById("accname").value = '';
+     }
+
+     </script>
+</center>
+</html>"},{"id":"5dd8e0a0-8162-48f6-80d6-f7923fc24968","name":"Stylesheet","type":"html","source":"<!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+<!-- Optional theme -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+
+<!-- Latest compiled and minified JavaScript -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+
+
+<style>
+
+        table {
+            width: 100%;
+        }
+
+        thead, tbody, tr, td, th { display: block; }
+
+        tr:after {
+            content: ' ';
+            display: block;
+            visibility: hidden;
+            clear: both;
+        }
+
+        thead th {
+            height: 30px;
+          text-align: left;
+          font-size: 14px;
+            color: #fff;
+        }
+
+        tbody {
+            height: 450px;
+            overflow-y: auto;
+           
+        }
+
+        thead {
+            fallback
+        }
+
+
+        tbody td, thead th {
+            width: 15.5%;
+            float: left;
+            padding: 5px !important;
+        }
+ thead tr th:first-child,
+ tbody tr td:first-child {
+  width: 5%;
+ }
+  thead tr th:first-child{
+  border-radius: 10px 0px 0px 0px;
+      font-size: 14px;
+    color: #fff;
+  }
+  th:last-child{   
+  border-radius: 0px 10px 0px 0px;
+
+  
+  }
+  ::-webkit-scrollbar { 
+    display: none; 
+}
+.desColumns{
+width: 20% !important;
+}
+.mkCopy{
+width: 11% !important;
+}
+</style>
+
+
+"},{"id":"58a0304a-d34f-42a5-aae7-132059547f34","name":"javascript","type":"html","source":"<!-- not in use please don't change anything-->
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+
+<script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+<script src="jquery.ui.timepicker.js"></script>
+
+<script>
+$(function() { 
+  document.getElementById("scountDiv").style.display = "none";
+  google.script.run.withSuccessHandler(select2).getInfo(); 
+}); 
+
+function Domainname(domainname)
+{
+//alert(domainname);
+ var reg =/(\W|^)htt(p|ps):(\/)(\/)[a-zA-Z0-9]/;
+  
+  if((reg.test(domainname)))
+  {
+    alert("Please Enter Domain Name as Ex:searce.com");
+ }
+
+  
+}
+
+function select2(name)
+{
+      //alert(name[[0][0]]);
+      var productName,salesCycle;
+      
+       productName=name[[0][0]].split(',');
+      salesCycle=name[[1][0]].split(',');
+      
+      
+      for(var i=0;i<productName.length;i++)
+      {
+      //alert('yes');
+      var x = document.getElementById('pname');
+      var option = document.createElement("option");
+      //alert(option);
+      option.text = productName[i];
+      
+      x.add(option);
+      
+      }
+      
+      for(var i=0;i<salesCycle.length;i++)
+      {
+      //alert('yes');
+      var x = document.getElementById('scyscle');
+      var option = document.createElement("option");
+      //alert(option);
+      option.text = salesCycle[i];
+      
+      x.add(option);
+      
+      }
+
+}
+
+function checkseatcount1(pname){
+var scyscle = document.getElementById('scyscle').value;
+
+if(pname =="Google Workspace" && scyscle=="Deployments"){
+    document.getElementById("scountDiv").style.display = "block";
+}
+else{
+ document.getElementById("scountDiv").style.display = "none";
+  }
+}
+
+function checkseatcount2(scyscle){
+var pname = document.getElementById('pname').value;
+if(pname =="Google Workspace" && scyscle=="Deployments"){
+    document.getElementById("scountDiv").style.display = "block";
+}
+else{
+ document.getElementById("scountDiv").style.display = "none";
+}
+}
+
+
+function processRequestForms()
+{
+   var userFormObj = document.getElementById('userReuestFrmData');
+   if(userFormObj.elements["dname"].value!='' && userFormObj.elements["cname"].value!='' && userFormObj.elements["pname"].value!='' &&userFormObj.elements["scyscle"].value!='' && 
+   (( document.getElementById('scountDiv').style.display == "block" &&  userFormObj.elements["scount"].value!='') || ( document.getElementById('scountDiv').style.display == "none" &&  userFormObj.elements["scount"].value=='')))
+  {
+   
+//      if(( document.getElementById('scountDiv').style.display == "block" &&  userFormObj.elements["scount"].value!='')|| ( document.getElementById('scountDiv').style.display == "none" &&  userFormObj.elements["scount"].value==''))
+//      {
+      $("#userBttn").attr("disabled", true);
+        google.script.run.withSuccessHandler(requestInit).userRqForms2(userFormObj);
+  }
+  else
+    {
+    alert("Please Fill All Mandatory Fields");
+    }
+}
+
+function requestInit()
+{
+     alert("your Form has been Submitted");
+  document.getElementById("userReuestFrmData").reset();
+ document.getElementById("scountDiv").style.display = "none";
+ $("#userBttn").attr("disabled", false);
+}
+function resetRequestForms()
+{
+document.getElementById("userReuestFrmData").reset()
+}
+
+
+</script>"},{"id":"4f73f7a7-6175-4a35-9130-fc2b660276c9","name":"Code1","type":"server_js","source":"// GET Request to serve HTML Page
+
+function doGet(e) {  
+  var template= HtmlService.createTemplateFromFile('Index'); // Create HTML page
+  return template.evaluate()
+  .setTitle('Autocreate Repository') // Title of Web page
+  .setSandboxMode(HtmlService.SandboxMode.IFRAME) // Sandbox mode iFrame
+  .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL); 
+}
+
+function getSheetBySalescycle(salesCycle) {
+  let sheet = null;
+  if (salesCycle === "Sales") { // Access Sales data if cycle is "Sales"
+
+  } else if (salesCycle === 'Presales') { // Access Presales data if cycle is "Presales"
+    sheet = SpreadsheetApp.openById("1LBfgaPPR20UD1Tz-hJ49VCVrMd1_TIzq0XQZgCFu7sg").getSheetByName("Presales Report Format");
+  } else if (salesCycle === 'Delivery') { // Access Delivery data if cycle is "Delivery"
+    sheet = SpreadsheetApp.openById("1y23j-LXUSBFfcpDWkHuTX7ZPuFYATKFCPqI4-syfRPM").getSheetByName("Delivery Format");
+  }
+
+  return sheet;
+}
+
+function getDataFromCode(salesCycle, code) {
+  const user = Session.getActiveUser().getEmail(); // active user on web page
+  const sheet = getSheetBySalescycle(salesCycle);  // get datasheet according to the sales cycle
+
+  const data = sheet.getDataRange().getValues();  // iterating over entire database of particular sales cycle 
+
+  const record = data.find((row) => (row[0] == code && (row[6] == user || user == 'cloudportal@searce.com','rahima.saleem@searce.com','shreettam.pradhan@searce.com','ansh.agrawal@searce.com'))); //Finding exact record with same code and Project Owner from Datasheet
+
+  // cloud.portal@searce.com -> exception .. can create any folder 
+  
+  // console.log(record);
+
+  const dataObj = {
+    domainName: record[1],                  // preparing details according to requirement
+    productName: record[2],
+    deliveryBU: record[3],
+    accountOwner: record[4],
+    accountId: record[5],
+    projectOwner: record[6],
+    currentUser: Session.getActiveUser().getEmail(), 
+    accountName: record[7],
+    repoLink: record[8],
+    accountFolderId: record[9],
+    subBU: record[10],
+  };
+
+  return JSON.stringify(dataObj);   // Stringify Object as it is Client - Server Communication
+}
+
+
+const getProjectCodeByUser = (salesCycle) => {
+  const user = Session.getActiveUser().getEmail(); // active user in web page
+
+  const sheet = getSheetBySalescycle(salesCycle); // get datasheet according to sales cycle
+  const data = sheet.getDataRange().getValues(); // get entire data sheet
+
+  if(user === 'cloudportal@searce.com','rahima.saleem@searce.com','sonnathi.harika@searce.com','ansh.agrawal@searce.com','shreettam.pradhan@searce.com') {  // cloud.portal@searce.com -> exception .. can create any folder
+    data.shift();            // removing headers from database
+    const temp = data.map(row => row[0]).filter(Boolean);  // filtering falsy/empty values
+    // console.log(temp);
+    return temp;
+  }
+
+  const filteredData = data.filter((row) => (row[6] == user));  // filtering data according to database
+
+  const codes = filteredData.map(row => row[0]); // mapping codes from filtered data as an array
+
+  return codes;
+}
+
+const encodeData = (data) => Utilities.base64EncodeWebSafe(String(data)); // API expects encoded parameter
+
+const createFolderUsingApi = (apiData) => {
+  const {salesCycle,domainName,productFamily,BU,accountOwner,accountId,user,opportunityOwner,accountFolderId,projectCode} = JSON.parse(apiData); // Parsing Object
+
+  //encode each and every parameter
+
+  const encodedSalesCycle = encodeData(salesCycle);
+  const encodedDomainName = encodeData(domainName);
+  const encodedProductFamily = encodeData(productFamily);
+  const encodedBU = encodeData(BU);
+  const encodedAccountOwner = encodeData(accountOwner);
+  const encodedAccountId = encodeData(accountId);
+  const encodedOpportunityOwner = encodeData(opportunityOwner);
+  const encodedUser = encodeData(user);
+  const encodedAccountFolderId = accountFolderId ? encodeData(accountFolderId) : "";
+  const encodedProjectCode = encodeData(projectCode);
+
+  // console.log({salesCycle,domainName,productFamily,BU,accountOwner,accountId,opportunityOwner,user,accountFolderId,projectCode});
+
+  // Call API according to Sales Cycle for Creating Repository
+
+  if(salesCycle === 'Delivery') {
+
+    const url = 'https://script.google.com/macros/s/AKfycbyrihp3eK9kXg2LHzXETbJAOXwEpCua3TSu8Des5zR9UZuEDosC1cg9pTdXL9Q5Gi3Vbw/exec?domainName='+encodedDomainName+'&user='+encodedUser+'&accountFolderId='+encodedAccountFolderId+'&salesCycle='+encodedSalesCycle+'&productFamily='+encodedProductFamily+'&projectCode='+encodedProjectCode+'&opportunityOwner='+encodedOpportunityOwner+'&BU='+encodedBU+'&accountOwner='+encodedAccountOwner+'&accountId='+encodedAccountId;
+
+    const res = UrlFetchApp.fetch(url).getContentText();
+
+    const {status, repoId} = JSON.parse(res);
+
+    return JSON.stringify({status, repoId});
+
+  } else if (salesCycle === 'Sales' || salesCycle === 'Presales') {
+
+    const url = 'https://script.google.com/macros/s/AKfycbwtyWz0qL5cEyw3Jn-D612GS66xcy2pDYMAlKoF1mto6FVpxCj0uqgMOIFPoHPPDYuIeQ/exec?domainName='+encodedDomainName+'&user='+encodedUser+'&accountFolderId='+encodedAccountFolderId+'&salesCycle='+encodedSalesCycle+'&productFamily='+encodedProductFamily+'&opportunityId='+encodedProjectCode+'&opportunityOwner='+encodedOpportunityOwner+'&BU='+encodedBU+'&accountOwner='+encodedAccountOwner+'&accountId='+encodedAccountId;
+    Logger.log(url);
+    console.log(url);
+    const res = UrlFetchApp.fetch(url).getContentText();
+
+    const {status, repoId} = JSON.parse(res);
+
+    return JSON.stringify({status, repoId});
+
+  }
+
+}
+
+
+"}]}
